@@ -1,0 +1,1907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <!-- Aggressive cache-busting for Safari and all browsers -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta http-equiv="Last-Modified" content="0">
+    <meta name="cache-control" content="no-cache">
+    <meta name="expires" content="0">
+    <title>Lyric Viewer v5.1.9 - Standalone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            grid-template-rows: auto auto 1fr auto;
+            height: 100vh;
+            overflow: hidden;
+            background: #0c0c0f;
+            color: #e0e0e0;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* Mobile: Stack layout, full-width lyrics */
+        @media (max-width: 768px) {
+            body {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr auto;
+            }
+
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 280px;
+                height: 100vh;
+                z-index: 1000;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                will-change: transform;
+                box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+                grid-row: auto;
+                grid-column: auto;
+                overflow-y: auto;
+                overflow-x: hidden;
+                display: flex;
+                flex-direction: column;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.3s ease, visibility 0.3s ease;
+                will-change: opacity;
+            }
+
+            .sidebar-overlay.open {
+                opacity: 1;
+                visibility: visible;
+            }
+
+            .main-view {
+                width: 100%;
+            }
+
+            .current-song {
+                grid-row: 2;
+                grid-column: 1 / -1;
+            }
+
+            .bottom-nav {
+                grid-row: 4;
+                grid-column: 1 / -1;
+            }
+
+            .toolbar {
+                padding: 10px 12px;
+                gap: 12px;
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                min-height: 56px;
+                box-sizing: border-box;
+            }
+
+            /* Hide desktop "Load More Songs" button on mobile */
+            .toolbar .load-files-desktop {
+                display: none !important;
+            }
+
+            .toolbar .spacer {
+                display: none !important;
+            }
+
+            .toolbar label {
+                font-size: 12px;
+                flex: 1;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-height: 36px;
+            }
+
+            .toolbar input[type="range"] {
+                width: 100px;
+                flex: 1;
+            }
+
+            .toolbar button {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+
+            .menu-toggle {
+                flex-shrink: 0;
+                min-height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .lyrics-container {
+                padding: 24px 16px !important;
+                padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
+            .lyrics-content {
+                max-width: 100% !important;
+            }
+        }
+
+        body.light {
+            background: #f5f5f5;
+            color: #1a1a1a;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            grid-row: 1;
+            grid-column: 1 / -1;
+            background: #1a1a1f;
+            padding: 12px 16px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            border-bottom: 1px solid #2a2a2f;
+            flex-wrap: wrap;
+        }
+
+        body.light .toolbar {
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .toolbar button {
+            padding: 8px 16px;
+            background: #3a3a3f;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        body.light .toolbar button {
+            background: #007acc;
+        }
+
+        .toolbar button:hover {
+            background: #4a4a4f;
+        }
+
+        body.light .toolbar button:hover {
+            background: #005a9e;
+        }
+
+        .toolbar button:active {
+            background: #5a5a5f;
+        }
+
+        .toolbar label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .toolbar input[type="range"] {
+            width: 120px;
+        }
+
+        /* Mobile: Larger, easier-to-grab slider with polished styling */
+        @media (max-width: 768px) {
+            .toolbar input[type="range"] {
+                width: 140px;
+                height: 44px; /* Larger touch target */
+                -webkit-appearance: none;
+                appearance: none;
+                background: transparent;
+            }
+
+            /* Webkit (Safari/Chrome) - Track background */
+            .toolbar input[type="range"]::-webkit-slider-runnable-track {
+                height: 6px;
+                background: #3a3a3f;
+                border-radius: 3px;
+            }
+
+            body.light .toolbar input[type="range"]::-webkit-slider-runnable-track {
+                background: #e0e0e0;
+            }
+
+            /* Webkit - Thumb (polished with better styling) */
+            .toolbar input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 24px;
+                height: 24px;
+                background: #007acc;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 3px solid #fff;
+                box-shadow: 0 2px 6px rgba(0, 122, 204, 0.4);
+                margin-top: -9px; /* Center on track */
+                position: relative;
+            }
+
+            body.light .toolbar input[type="range"]::-webkit-slider-thumb {
+                box-shadow: 0 2px 6px rgba(0, 122, 204, 0.5);
+            }
+
+            /* Firefox - Track */
+            .toolbar input[type="range"]::-moz-range-track {
+                height: 6px;
+                background: #3a3a3f;
+                border-radius: 3px;
+                border: none;
+            }
+
+            body.light .toolbar input[type="range"]::-moz-range-track {
+                background: #e0e0e0;
+            }
+
+            /* Firefox - Progress fill (the filled portion) */
+            .toolbar input[type="range"]::-moz-range-progress {
+                height: 6px;
+                background: #007acc;
+                border-radius: 3px 0 0 3px;
+            }
+
+            /* Firefox - Thumb */
+            .toolbar input[type="range"]::-moz-range-thumb {
+                width: 24px;
+                height: 24px;
+                background: #007acc;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 3px solid #fff;
+                box-shadow: 0 2px 6px rgba(0, 122, 204, 0.4);
+            }
+
+            body.light .toolbar input[type="range"]::-moz-range-thumb {
+                box-shadow: 0 2px 6px rgba(0, 122, 204, 0.5);
+            }
+        }
+
+        /* Desktop: Polished slider styling */
+        @media (min-width: 769px) {
+            .toolbar input[type="range"] {
+                -webkit-appearance: none;
+                appearance: none;
+                background: transparent;
+            }
+
+            /* Webkit - Track */
+            .toolbar input[type="range"]::-webkit-slider-runnable-track {
+                height: 4px;
+                background: #3a3a3f;
+                border-radius: 2px;
+            }
+
+            body.light .toolbar input[type="range"]::-webkit-slider-runnable-track {
+                background: #e0e0e0;
+            }
+
+            /* Webkit - Thumb */
+            .toolbar input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 18px;
+                height: 18px;
+                background: #007acc;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 2px solid #fff;
+                box-shadow: 0 2px 4px rgba(0, 122, 204, 0.3);
+                margin-top: -7px;
+            }
+
+            /* Firefox - Track */
+            .toolbar input[type="range"]::-moz-range-track {
+                height: 4px;
+                background: #3a3a3f;
+                border-radius: 2px;
+                border: none;
+            }
+
+            body.light .toolbar input[type="range"]::-moz-range-track {
+                background: #e0e0e0;
+            }
+
+            /* Firefox - Progress fill */
+            .toolbar input[type="range"]::-moz-range-progress {
+                height: 4px;
+                background: #007acc;
+                border-radius: 2px 0 0 2px;
+            }
+
+            /* Firefox - Thumb */
+            .toolbar input[type="range"]::-moz-range-thumb {
+                width: 18px;
+                height: 18px;
+                background: #007acc;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 2px solid #fff;
+                box-shadow: 0 2px 4px rgba(0, 122, 204, 0.3);
+            }
+        }
+
+        .toolbar .spacer {
+            flex: 1;
+        }
+
+        /* Hamburger menu button (mobile only) */
+        .menu-toggle {
+            display: none;
+            background: #3a3a3f;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        body.light .menu-toggle {
+            background: #007acc;
+        }
+
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: inline-block;
+            }
+        }
+
+        /* Sidebar */
+        .sidebar {
+            grid-row: 3;
+            grid-column: 1;
+            background: #151518;
+            border-right: 1px solid #2a2a2f;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body.light .sidebar {
+            background: #fafafa;
+            border-right: 1px solid #e0e0e0;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #2a2a2f;
+            flex-shrink: 0;
+        }
+
+        body.light .sidebar-header {
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .sidebar-header h1 {
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+
+        .sidebar-header .version-badge {
+            font-size: 11px;
+            font-weight: 500;
+            color: #999;
+            margin-top: 4px;
+            font-family: 'Courier New', monospace;
+            opacity: 0.8;
+        }
+
+        body.light .sidebar-header .version-badge {
+            color: #666;
+        }
+
+        .theme-toggle-sidebar {
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px 12px;
+            background: #3a3a3f;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        body.light .theme-toggle-sidebar {
+            background: #007acc;
+        }
+
+        .theme-toggle-sidebar:hover {
+            background: #4a4a4f;
+        }
+
+        body.light .theme-toggle-sidebar:hover {
+            background: #005a9e;
+        }
+
+        .search {
+            width: 100%;
+            padding: 8px 12px;
+            background: #2a2a2f;
+            border: 1px solid #3a3a3f;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        body.light .search {
+            background: #fff;
+            border: 1px solid #ccc;
+            color: #1a1a1a;
+        }
+
+        .song-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 8px;
+            min-height: 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .song-item {
+            padding: 12px;
+            margin: 4px 0;
+            background: #1f1f22;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border: 1px solid transparent;
+        }
+
+        body.light .song-item {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+        }
+
+        .song-item:hover {
+            background: #2a2a2f;
+        }
+
+        body.light .song-item:hover {
+            background: #f0f0f0;
+        }
+
+        .song-item.active {
+            background: #007acc;
+            border-color: #0099ff;
+        }
+
+        body.light .song-item.active {
+            background: #007acc;
+            color: #fff;
+        }
+
+        .song-item .artist {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .song-item .title {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Main View */
+        .main-view {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Desktop only: Grid positioning */
+        @media (min-width: 769px) {
+            .main-view {
+                grid-row: 3;
+                grid-column: 2;
+            }
+        }
+
+        .lyrics-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 48px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        /* Desktop: Reduce padding when screen is large (better use of space) */
+        @media (min-width: 769px) {
+            .lyrics-container {
+                padding: 24px 48px;
+            }
+        }
+
+        .lyrics-content {
+            max-width: 800px;
+            width: 100%;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            text-align: left;
+            transition: font-size 0.2s;
+            overflow-wrap: break-word;
+        }
+
+        /* Desktop: Allow wider content when font is small (better space utilization) */
+        @media (min-width: 769px) {
+            .lyrics-content {
+                max-width: 1200px;
+            }
+        }
+
+        .lyrics-content.empty {
+            text-align: center;
+            opacity: 0.5;
+            font-style: italic;
+        }
+
+        .status {
+            text-align: center;
+            padding: 24px;
+            opacity: 0.6;
+            font-size: 14px;
+        }
+
+        /* Current song display */
+        .current-song {
+            grid-row: 2;
+            grid-column: 1 / -1;
+            background: #1a1a1f;
+            padding: 8px 16px;
+            border-bottom: 1px solid #2a2a2f;
+            text-align: center;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        body.light .current-song {
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .current-song .artist {
+            font-weight: 500;
+        }
+
+        .current-song .title {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .current-song {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .current-song .title {
+                font-size: 14px;
+            }
+        }
+
+        /* Bottom Navigation - Next Song Button */
+        .bottom-nav {
+            grid-row: 4;
+            grid-column: 1 / -1;
+            background: #1a1a1f;
+            border-top: 1px solid #2a2a2f;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+            min-height: 60px;
+        }
+
+        body.light .bottom-nav {
+            background: #ffffff;
+            border-top: 1px solid #e0e0e0;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .bottom-nav.hidden {
+            display: none;
+        }
+
+        .bottom-nav .next-song-button {
+            width: 100%;
+            max-width: 600px;
+            padding: 16px 24px;
+            background: #007acc;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 122, 204, 0.3);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
+        body.light .bottom-nav .next-song-button {
+            box-shadow: 0 2px 8px rgba(0, 122, 204, 0.4);
+        }
+
+        .bottom-nav .next-song-button:hover {
+            background: #0099ff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 122, 204, 0.4);
+        }
+
+        .bottom-nav .next-song-button:active {
+            background: #0066aa;
+            transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(0, 122, 204, 0.3);
+        }
+
+        .bottom-nav .next-song-button:disabled {
+            background: #3a3a3f;
+            color: #666;
+            cursor: not-allowed;
+            opacity: 0.5;
+            transform: none;
+            box-shadow: none;
+        }
+
+        body.light .bottom-nav .next-song-button:disabled {
+            background: #e0e0e0;
+            color: #999;
+        }
+
+        /* Mobile: Larger touch target for button + Safe area for iOS Safari */
+        @media (max-width: 768px) {
+            .bottom-nav {
+                padding: 14px 16px;
+                padding-bottom: calc(14px + 20px + env(safe-area-inset-bottom, 0px));
+                min-height: 64px;
+                /* Ensure button is above Safari's native UI */
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 1000;
+            }
+
+            .bottom-nav .next-song-button {
+                padding: 18px 24px;
+                font-size: 16px;
+                min-height: 52px;
+            }
+        }
+
+        /* Font Size Slider Visibility */
+        .font-size-control.hidden {
+            display: none !important;
+        }
+
+        /* Settings controls in sidebar */
+        .settings-toggle-button {
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px 12px;
+            background: #2a2a2f;
+            color: #fff;
+            border: 1px solid #3a3a3f;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        body.light .settings-toggle-button {
+            background: #f0f0f0;
+            border-color: #ccc;
+            color: #1a1a1a;
+        }
+
+        .settings-toggle-button:hover {
+            background: #3a3a3f;
+        }
+
+        body.light .settings-toggle-button:hover {
+            background: #e0e0e0;
+        }
+
+        .settings-toggle-button:active {
+            background: #4a4a4f;
+        }
+
+        body.light .settings-toggle-button:active {
+            background: #d0d0d0;
+        }
+
+        .settings-section {
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            border-top: none;
+            flex-shrink: 0;
+        }
+
+        .settings-section.open {
+            max-height: 1000px;
+            padding: 16px;
+            border-top: 1px solid #2a2a2f;
+        }
+
+        body.light .settings-section.open {
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .settings-section .theme-toggle-sidebar,
+        .settings-section .update-button {
+            margin-top: 12px;
+        }
+
+        .settings-section .theme-toggle-sidebar:first-child {
+            margin-top: 0;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            gap: 12px;
+        }
+
+        .setting-item label {
+            font-size: 14px;
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .setting-item .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            background: #3a3a3f;
+            border-radius: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+
+        body.light .setting-item .toggle-switch {
+            background: #ccc;
+        }
+
+        .setting-item .toggle-switch.active {
+            background: #007acc;
+        }
+
+        .setting-item .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .setting-item .toggle-switch.active::after {
+            transform: translateX(24px);
+        }
+
+        .update-button {
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px 12px;
+            background: #007acc;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        body.light .update-button {
+            background: #007acc;
+        }
+
+        .update-button:hover {
+            background: #0099ff;
+        }
+
+        body.light .update-button:hover {
+            background: #005a9e;
+        }
+
+        .update-button:active {
+            background: #0066aa;
+            transform: scale(0.98);
+        }
+
+        .update-button:disabled {
+            background: #3a3a3f;
+            color: #666;
+            cursor: wait;
+            opacity: 0.6;
+        }
+
+        body.light .update-button:disabled {
+            background: #ccc;
+            color: #999;
+        }
+
+        /* Version number - More visible to help verify cache freshness */
+        .version-number {
+            position: fixed;
+            bottom: 8px;
+            right: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            opacity: 0.6;
+            color: #999;
+            pointer-events: none;
+            z-index: 1;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        body.light .version-number {
+            color: #666;
+            background: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <div class="toolbar">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <button id="loadFiles" class="load-files-desktop">Load More Songs</button>
+        <div class="spacer"></div>
+        <label class="font-size-control" id="fontSizeControl">
+            Font Size:
+            <input type="range" id="fontSize" min="12" max="96" value="32" step="2">
+            <span id="fontSizeValue">32px</span>
+        </label>
+    </div>
+
+    <div class="current-song" id="currentSong">
+        <span class="title">No song selected</span>
+    </div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h1>Lyric Viewer</h1>
+            <div class="version-badge">v5.1.9</div>
+            <input type="text" class="search" id="search" placeholder="Search songs...">
+            <button class="settings-toggle-button" id="settingsToggle">
+                ⚙️ Settings
+            </button>
+        </div>
+        <div class="settings-section" id="settingsSection">
+            <button class="theme-toggle-sidebar" id="themeToggle">🌙 Dark Mode</button>
+            <button class="update-button" id="loadFilesMobile">
+                📁 Load More Songs
+            </button>
+            <div class="setting-item">
+                <label for="toggleNextSong">Show Next Song Button</label>
+                <div class="toggle-switch active" id="toggleNextSong"></div>
+            </div>
+            <div class="setting-item">
+                <label for="toggleFontSlider">Show Font Size Slider</label>
+                <div class="toggle-switch active" id="toggleFontSlider"></div>
+            </div>
+            <button class="update-button" id="checkForUpdates">
+                🔄 Check for Updates
+            </button>
+        </div>
+        <div class="song-list" id="songList">
+            <div class="status">Loading songs...</div>
+        </div>
+    </aside>
+
+    <main class="main-view">
+        <div class="lyrics-container">
+            <div class="lyrics-content empty" id="lyricsContent">
+                Loading...
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation - Next Song Button -->
+    <nav class="bottom-nav" id="bottomNav">
+        <button class="next-song-button" id="nextSongButton">
+            Next Song: <span id="nextSongText">No song selected</span>
+        </button>
+    </nav>
+
+    <!-- VERSION: v5.1 - Added Next Song button with mobile support, settings toggles for UI customization -->
+    <div class="version-number">v5.1.9</div>
+
+    <script>
+        // Aggressive cache-busting for Safari - Auto-detect and reload stale cache
+        (function() {
+            // Prevent caching by clearing service workers
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for(let registration of registrations) {
+                        registration.unregister();
+                    }
+                });
+            }
+            
+            // Version check - ALWAYS check on every page load to detect stale cache
+            const CURRENT_VERSION = '5.1.9'; // Update this when you deploy new versions
+            const EXPECTED_DISPLAY_VERSION = 'v5.1.9'; // Must match the version badge in HTML
+            const VERSION_KEY = 'lyricViewerVersion';
+            const storedVersion = localStorage.getItem(VERSION_KEY);
+            
+            // CRITICAL: Check the actual HTML version badge FIRST (before localStorage)
+            // This catches cases where HTML is cached but localStorage is from new version
+            function checkVersionAndReload() {
+                const versionEl = document.querySelector('.version-badge');
+                const actualVersion = versionEl ? versionEl.textContent.trim() : '';
+                
+                // If version badge doesn't match expected, we have cached HTML - force reload
+                if (!versionEl || actualVersion !== EXPECTED_DISPLAY_VERSION) {
+                    console.log('⚠️ Cached HTML detected! Expected:', EXPECTED_DISPLAY_VERSION, 'Found:', actualVersion);
+                    console.log('🔄 Forcing fresh reload...');
+                    
+                    // Clear version from localStorage to ensure reload happens
+                    localStorage.removeItem(VERSION_KEY);
+                    
+                    // Force reload bypassing cache
+                    fetch(window.location.href, {
+                        method: 'GET',
+                        cache: 'no-store',
+                        headers: {
+                            'Cache-Control': 'no-cache, no-store, must-revalidate',
+                            'Pragma': 'no-cache'
+                        }
+                    }).then(function() {
+                        window.location.reload(true);
+                    }).catch(function() {
+                        // Fallback: reload anyway
+                        window.location.reload(true);
+                    });
+                    return true; // Reload triggered
+                }
+                
+                // Check localStorage version mismatch
+                if (storedVersion && storedVersion !== CURRENT_VERSION) {
+                    console.log('⚠️ Version mismatch in localStorage. Expected:', CURRENT_VERSION, 'Found:', storedVersion);
+                    console.log('🔄 Reloading...');
+                    localStorage.setItem(VERSION_KEY, CURRENT_VERSION);
+                    fetch(window.location.href, {
+                        method: 'GET',
+                        cache: 'no-store'
+                    }).then(function() {
+                        window.location.reload(true);
+                    }).catch(function() {
+                        window.location.reload(true);
+                    });
+                    return true; // Reload triggered
+                }
+                
+                // Store current version if first load
+                if (!storedVersion) {
+                    localStorage.setItem(VERSION_KEY, CURRENT_VERSION);
+                }
+                
+                return false; // No reload needed
+            }
+            
+            // Check immediately
+            if (checkVersionAndReload()) {
+                return; // Stop execution, reload happening
+            }
+            
+            // Also check after DOM is ready (in case badge loads late)
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(checkVersionAndReload, 50);
+                });
+            } else {
+                setTimeout(checkVersionAndReload, 50);
+            }
+        })();
+
+        let songs = [];
+        let currentSong = null;
+        let dirHandle = null;
+
+        // Embedded songs (all songs included - completely self-contained!)
+        const EMBEDDED_SONGS = [
+            {
+                id: "Estelle - American Boy",
+                artist: "Estelle",
+                title: "American Boy",
+                lyrics: `He said, "Hey sister"
+Said, "Hey sister"
+I said, "Hey brother"
+What's up with you?
+You know I'm checking up on you
+So tell me what's up with you?
+
+He said, "Hey sister"
+Said, "Hey sister"
+I said, "Hey brother"
+What's up with you?
+You know I'm checking up on you
+So tell me what's up with you?
+
+You know I'm checking up on you
+So tell me what's up with you?
+
+Take me on a trip, I'd like to go some day
+Take me to New York, I'd love to see L.A.
+I really want to come kick it with you
+You'll be my American boy, American boy
+
+I'd like to see you, boy, across the pond
+I'd like to take you to the place I'm from
+You'll be my American boy, American boy
+
+Take me on a trip, I'd like to go some day
+Take me to New York, I'd love to see L.A.
+I really want to come kick it with you
+You'll be my American boy, American boy
+
+I'd like to see you, boy, across the pond
+I'd like to take you to the place I'm from
+You'll be my American boy, American boy`
+            },
+            {
+                id: "Faith Evans - Love Like This",
+                artist: "Faith Evans",
+                title: "Love Like This",
+                lyrics: `I never knew there was a love like this before
+Never had a love that knocked me to the floor
+I never knew there was a love like this before
+Never had a love that knocked me to the floor
+
+I never knew there was a love like this before
+Never had a love that knocked me to the floor
+I never knew there was a love like this before
+Never had a love that knocked me to the floor
+
+I never knew there was a love like this before
+Never had a love that knocked me to the floor
+I never knew there was a love like this before
+Never had a love that knocked me to the floor
+
+I never knew there was a love like this before
+Never had a love that knocked me to the floor
+I never knew there was a love like this before
+Never had a love that knocked me to the floor
+
+I never knew there was a love like this before
+Never had a love that knocked me to the floor
+I never knew there was a love like this before
+Never had a love that knocked me to the floor
+
+I never knew there was a love like this before
+Never had a love that knocked me to the floor
+I never knew there was a love like this before
+Never had a love that knocked me to the floor`
+            },
+            {
+                id: "Victoria Monet - On My Mama",
+                artist: "Victoria Monet",
+                title: "On My Mama",
+                lyrics: `When they say, "She get it from her mama"
+I'ma say, "You fuckin' right"
+Body rude, it's unpolite
+Done being the humble type
+Tell me, is you down?
+'Cause I'm tryna go up tonight
+Hoes and hoochies left and right
+I just wanna live in a fantasy
+I think we deserve it, right?
+Top all the memories
+I've ever made in my life
+Permanent ecstasy
+Ladies is pimps tonight
+Living inside a dream
+Let's lay where the lovers lie
+I put that on my own mama
+On my hood
+I look fly
+I look good
+You can't touch my bag
+Wish you could
+I look fly
+I look too good
+Put that on my own mama
+On my hood
+I look fly
+I look good
+You can't touch my bag
+Wish you could
+I look fly
+I look too good
+On my mama (mama), on my hood (hood)
+I look fly (yeah), I look good (good)
+Touch my swag (swag), wish you could (could)
+I look fly (yeah), I look good, good, good
+I'm so deep in my bag
+Like a grandma wit' a peppermint
+They say, "Ooh, she smell good"
+That's just 'cause I'm Heaven-sent
+Sex game go stupid (ayy)
+Snappin' like a toothpick (ayy)
+Man, to tell the truth
+Your opinion is irrelevant, but I
+I know you think I'm fine
+Might be too fine to hit it from behind
+Reflection in the mirror don't decline
+I can't even lie, lie, lie`
+            },
+            {
+                id: "Tweet - Oops",
+                artist: "Tweet",
+                title: "Oops",
+                lyrics: `Tell you what I did last night
+I came home, say, around a quarter to three
+Still so high, hypnotized
+In a trance
+From his body, so buttery brown and tantalizing
+You woulda thought I needed help from this feeling that I felt
+So shook, I had to catch my breath
+Oops, there goes my shirt up over my head
+Oh, my
+Oops, there goes my skirt droppin' to my feet
+Oh, my
+Ooh, some kinda touch caressing my leg
+Oh, my
+Ooh, I'm turning red
+Who could this be?
+I tried and I tried to avoid
+But this thing was happening
+Swallowed my pride
+Let it ride and partied
+But this body felt just like mines
+I got worried
+I looked over to the left, a reflection of myself
+That's why I couldn't catch my breath
+Oops, there goes my shirt up over my head
+Oh, my (oh, my)
+Oops, there goes my skirt droppin' to my feet
+Oh, my (oh, my)
+Ooh, some kinda touch caressing my leg
+Oh, my (oh, my)
+Ooh, I'm turning red
+Who could this be?
+Mm, I was looking so good I couldn't reject myself
+(I looked over to the left)
+Mm, I was feeling so good I had to touch myself
+(I looked over to the left)
+Mm, I was eyein' my thighs, butter pecan brown
+(I looked over to the left)
+Mm, comin' outta my shirt and then the skirt came down`
+            },
+            {
+                id: "Floetry - Say Yes",
+                artist: "Floetry",
+                title: "Say Yes",
+                lyrics: `There is only one for me
+You have made that a possibility
+We could take that step to see, mm
+If this is really gonna be
+All you got to do is say yes
+All you got to do is say yes
+Don't deny what you feel, let me undress you, babe
+Open up your mind and just rest
+I'm about to let you know, you make me so
+All you got to do is say yes
+Don't deny what you feel, let me undress you, babe
+Open up your mind and just rest
+I'm about to let you know, you make me so, so
+So, so, so, so, so, so
+You make me so, so, so, so, so, so, so, so, ah
+Loving you has taken time, take time
+But I always knew you could be mine
+I-I recognize the butterflies inside me, ah
+Sense is gonna be made tonight, tonight
+All you got to do is say yes
+All you got to do is say yes
+Don't deny what you feel, let me undress you, babe
+Open up your mind and just rest
+I'm about to let you know, you make me so
+Don't deny what you feel let me undress you, babe
+Open up your mind and just rest
+I'm about to let you know you make me so, so`
+            },
+            {
+                id: "T-Pain - Buy U a Drank",
+                artist: "T-Pain",
+                title: "Buy U a Drank",
+                lyrics: `I'ma buy you a drank
+Ooh, I'ma take you home with me
+I got money in the bank
+Shawty, what you think 'bout that?
+I'ma buy you a drank
+Ooh, I'ma take you home with me
+I got money in the bank
+Shawty, what you think 'bout that?
+
+I'ma buy you a drank
+Ooh, I'ma take you home with me
+I got money in the bank
+Shawty, what you think 'bout that?
+I'ma buy you a drank
+Ooh, I'ma take you home with me
+I got money in the bank
+Shawty, what you think 'bout that?`
+            }
+        ];
+
+        // Detect mobile device
+        const isMobile = window.innerWidth <= 768;
+        
+        // Load settings from localStorage (smaller default font on mobile)
+        const settings = {
+            fontSize: parseInt(localStorage.getItem('fontSize') || (isMobile ? '24' : '32')),
+            theme: localStorage.getItem('theme') || 'dark',
+            showNextSongButton: localStorage.getItem('showNextSongButton') !== 'false', // Default: true
+            showFontSlider: localStorage.getItem('showFontSlider') !== 'false' // Default: true
+        };
+
+        // Cache DOM elements early for performance
+        const fontSizeEl = document.getElementById('fontSize');
+        const fontSizeValueEl = document.getElementById('fontSizeValue');
+        const fontSizeControlEl = document.getElementById('fontSizeControl');
+        const lyricsContentEl = document.getElementById('lyricsContent');
+        const themeToggleEl = document.getElementById('themeToggle');
+        const sidebarEl = document.getElementById('sidebar');
+        const overlayEl = document.getElementById('sidebarOverlay');
+        const currentSongEl = document.getElementById('currentSong');
+        const lyricsContainerEl = document.querySelector('.lyrics-container');
+        const songListContainer = document.getElementById('songList');
+        const bottomNavEl = document.getElementById('bottomNav');
+        const nextSongButtonEl = document.getElementById('nextSongButton');
+        const nextSongTextEl = document.getElementById('nextSongText');
+        const toggleNextSongEl = document.getElementById('toggleNextSong');
+        const toggleFontSliderEl = document.getElementById('toggleFontSlider');
+        const settingsToggleEl = document.getElementById('settingsToggle');
+        const settingsSectionEl = document.getElementById('settingsSection');
+
+        // Settings toggle button
+        settingsToggleEl.addEventListener('click', () => {
+            settingsSectionEl.classList.toggle('open');
+            // Update button text/icon based on state
+            const isOpen = settingsSectionEl.classList.contains('open');
+            settingsToggleEl.textContent = isOpen ? '⚙️ Settings ▲' : '⚙️ Settings';
+        });
+
+        // Apply settings
+        fontSizeEl.value = settings.fontSize;
+        fontSizeValueEl.textContent = settings.fontSize + 'px';
+        lyricsContentEl.style.fontSize = settings.fontSize + 'px';
+        
+        if (settings.theme === 'light') {
+            document.body.classList.add('light');
+            themeToggleEl.textContent = '☀️ Light Mode';
+        } else {
+            themeToggleEl.textContent = '🌙 Dark Mode';
+        }
+
+        // Apply visibility settings
+        if (!settings.showNextSongButton) {
+            bottomNavEl.classList.add('hidden');
+            toggleNextSongEl.classList.remove('active');
+        }
+        if (!settings.showFontSlider) {
+            fontSizeControlEl.classList.add('hidden');
+            toggleFontSliderEl.classList.remove('active');
+        }
+
+        // IndexedDB for persistent storage (optional - for adding more songs)
+        let db = null;
+        async function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('LyricViewer', 1);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('songs')) {
+                        db.createObjectStore('songs', { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        // Save songs to IndexedDB
+        async function saveSongsToDB() {
+            if (!db) return;
+            const tx = db.transaction('songs', 'readwrite');
+            const store = tx.objectStore('songs');
+            for (const song of songs) {
+                await store.put(song);
+            }
+        }
+
+        // Load songs from IndexedDB
+        async function loadSongsFromDB() {
+            if (!db) return [];
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('songs', 'readonly');
+                const store = tx.objectStore('songs');
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // Initialize on load - OPTIMIZED: Show UI immediately, load DB in background
+        async function init() {
+            // Only do DB stuff if songs already loaded (from startApp)
+            if (songs.length === 0) {
+                try {
+                    // Show embedded songs IMMEDIATELY (no blocking)
+                    if (EMBEDDED_SONGS && EMBEDDED_SONGS.length > 0) {
+                        songs = [...EMBEDDED_SONGS];
+                        renderSongList();
+                        if (songs.length > 0) {
+                            selectSong(songs[0].id);
+                            updateNextSongButton();
+                        } else {
+                            currentSongEl.innerHTML = '<span class="title">No songs loaded</span>';
+                        }
+                    } else {
+                        console.error('EMBEDDED_SONGS not found or empty!');
+                        currentSongEl.innerHTML = '<span class="title">Error: Songs not loaded</span>';
+                        songListContainer.innerHTML = '<div class="status">Error loading songs</div>';
+                        return;
+                    }
+                } catch (err) {
+                    console.error('Error initializing songs:', err);
+                    currentSongEl.innerHTML = '<span class="title">Error loading songs</span>';
+                    songListContainer.innerHTML = '<div class="status">Error: ' + err.message + '</div>';
+                    return;
+                }
+            }
+            
+            // Load from IndexedDB in background (non-blocking) - only if available
+            try {
+                if ('indexedDB' in window) {
+                    await initDB();
+                    const savedSongs = await loadSongsFromDB();
+                    
+                    // Merge with any saved songs (avoid duplicates)
+                    if (savedSongs.length > 0) {
+                        for (const savedSong of savedSongs) {
+                            if (!songs.find(s => s.id === savedSong.id)) {
+                                songs.push(savedSong);
+                            }
+                        }
+                        songs.sort((a, b) => {
+                            if (a.artist !== b.artist) return a.artist.localeCompare(b.artist);
+                            return a.title.localeCompare(b.title);
+                        });
+                        renderSongList(); // Re-render with merged songs
+                    }
+                    
+                    // Save embedded songs to DB in background (non-blocking)
+                    saveSongsToDB().catch(err => console.warn('DB save failed:', err));
+                }
+            } catch (err) {
+                console.warn('DB init failed, using embedded songs only:', err);
+                // Already showing embedded songs above, so no action needed
+            }
+        }
+
+        // Parse filename: "Artist - Song Title.txt"
+        // Handles artists with dashes (e.g., "T-Pain - Song Title")
+        function parseFilename(filename) {
+            const name = filename.replace(/\.txt$/i, '');
+            // Look for " - " (space-dash-space) as the separator, matching the last occurrence
+            const lastSeparator = name.lastIndexOf(' - ');
+            if (lastSeparator > 0) {
+                const artist = name.substring(0, lastSeparator).trim();
+                const title = name.substring(lastSeparator + 3).trim();
+                return { artist, title };
+            }
+            // Fallback: try any dash with spaces around it
+            const match = name.match(/^(.+?)\s+-\s+(.+)$/);
+            if (match) {
+                return { artist: match[1].trim(), title: match[2].trim() };
+            }
+            return { artist: 'Unknown', title: name };
+        }
+
+        // Load songs from folder or files (optional - for adding more)
+        async function loadSongsFolder() {
+            try {
+                // Try File System Access API (Chrome desktop)
+                if ('showDirectoryPicker' in window) {
+                    dirHandle = await window.showDirectoryPicker();
+                    await readDirectory(dirHandle);
+                } else {
+                    // Fallback: use file input (multiple files) - works on mobile/tablet
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.multiple = true;
+                    input.accept = '.txt';
+                    input.onchange = async (e) => {
+                        const files = Array.from(e.target.files);
+                        if (files.length > 0) {
+                            await loadFiles(files, true); // true = append to existing
+                        }
+                    };
+                    input.click();
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    alert('Error loading songs: ' + err.message);
+                }
+            }
+        }
+
+        // Read directory using File System Access API
+        async function readDirectory(handle) {
+            const newSongs = [];
+            for await (const entry of handle.values()) {
+                if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.txt')) {
+                    const file = await entry.getFile();
+                    const text = await file.text();
+                    const { artist, title } = parseFilename(entry.name);
+                    const songId = `${artist} - ${title}`;
+                    if (!songs.find(s => s.id === songId)) {
+                        newSongs.push({
+                            id: songId,
+                            artist,
+                            title,
+                            lyrics: text.trim(),
+                            filename: entry.name
+                        });
+                    }
+                }
+            }
+            songs.push(...newSongs);
+            songs.sort((a, b) => {
+                if (a.artist !== b.artist) return a.artist.localeCompare(b.artist);
+                return a.title.localeCompare(b.title);
+            });
+            await saveSongsToDB();
+            renderSongList();
+            if (newSongs.length > 0 && songs.length > 0) {
+                selectSong(newSongs[0].id);
+                updateNextSongButton();
+            }
+        }
+
+        // Load files from FileList (fallback/mobile)
+        async function loadFiles(files, append = false) {
+            const newSongs = [];
+            for (const file of files) {
+                if (file.name.toLowerCase().endsWith('.txt')) {
+                    const text = await file.text();
+                    const { artist, title } = parseFilename(file.name);
+                    const songId = `${artist} - ${title}`;
+                    // Avoid duplicates
+                    if (!songs.find(s => s.id === songId)) {
+                        newSongs.push({
+                            id: songId,
+                            artist,
+                            title,
+                            lyrics: text.trim(),
+                            filename: file.name
+                        });
+                    }
+                }
+            }
+            songs.push(...newSongs);
+            songs.sort((a, b) => {
+                if (a.artist !== b.artist) return a.artist.localeCompare(b.artist);
+                return a.title.localeCompare(b.title);
+            });
+            await saveSongsToDB();
+            renderSongList();
+            if (newSongs.length > 0 && songs.length > 0) {
+                selectSong(newSongs[0].id);
+                updateNextSongButton();
+            }
+        }
+
+        // Use event delegation (better performance - one listener instead of many)
+        songListContainer.addEventListener('click', (e) => {
+            const songItem = e.target.closest('.song-item');
+            if (songItem) {
+                selectSong(songItem.dataset.id);
+            }
+        });
+
+        // Render song list
+        function renderSongList(filter = '') {
+            const filtered = songs.filter(song => {
+                const search = filter.toLowerCase();
+                return song.artist.toLowerCase().includes(search) ||
+                       song.title.toLowerCase().includes(search);
+            });
+
+            if (filtered.length === 0) {
+                songListContainer.innerHTML = '<div class="status">No songs found</div>';
+                return;
+            }
+
+            songListContainer.innerHTML = filtered.map(song => `
+                <div class="song-item ${currentSong?.id === song.id ? 'active' : ''}" 
+                     data-id="${song.id}">
+                    <div class="artist">${escapeHtml(song.artist)}</div>
+                    <div class="title">${escapeHtml(song.title)}</div>
+                </div>
+            `).join('');
+        }
+
+        // Select song
+        function selectSong(id) {
+            const song = songs.find(s => s.id === id);
+            if (!song) return;
+
+            currentSong = song;
+            
+            // Clean up lyrics: trim and collapse excessive blank lines (performance: simple regex)
+            let cleanedLyrics = song.lyrics.trim();
+            cleanedLyrics = cleanedLyrics.replace(/\n{3,}/g, '\n\n');
+            cleanedLyrics = cleanedLyrics.replace(/^\n+|\n+$/g, '');
+            
+            lyricsContentEl.textContent = cleanedLyrics;
+            lyricsContentEl.classList.remove('empty');
+
+            // Update current song display
+            currentSongEl.innerHTML = `<span class="artist">${escapeHtml(song.artist)}</span> - <span class="title">${escapeHtml(song.title)}</span>`;
+
+            // Update next song button text
+            updateNextSongButton();
+
+            // Update active state (performance: only update changed items)
+            const songItems = songListContainer.querySelectorAll('.song-item');
+            songItems.forEach(item => {
+                item.classList.toggle('active', item.dataset.id === id);
+            });
+
+            // Scroll to top
+            if (lyricsContainerEl) lyricsContainerEl.scrollTop = 0;
+
+            // Close sidebar on mobile after selecting
+            if (isMobile) {
+                sidebarEl.classList.remove('open');
+                overlayEl.classList.remove('open');
+            }
+        }
+
+        // Update next song button text
+        function updateNextSongButton() {
+            if (songs.length === 0 || !currentSong) {
+                nextSongTextEl.textContent = 'No song selected';
+                nextSongButtonEl.disabled = true;
+                return;
+            }
+            
+            const currentIndex = songs.findIndex(s => s.id === currentSong.id);
+            const nextIndex = (currentIndex + 1) % songs.length;
+            const nextSong = songs[nextIndex];
+            
+            if (nextSong) {
+                nextSongTextEl.textContent = `${escapeHtml(nextSong.artist)} - ${escapeHtml(nextSong.title)}`;
+                nextSongButtonEl.disabled = false;
+            } else {
+                nextSongTextEl.textContent = 'No more songs';
+                nextSongButtonEl.disabled = true;
+            }
+        }
+
+        // Escape HTML (performance: reuse single element)
+        const escapeDiv = document.createElement('div');
+        function escapeHtml(text) {
+            escapeDiv.textContent = text;
+            return escapeDiv.innerHTML;
+        }
+
+        // Toggle sidebar on mobile
+        function toggleSidebar() {
+            sidebarEl.classList.toggle('open');
+            overlayEl.classList.toggle('open');
+        }
+
+        // Close sidebar when clicking overlay
+        overlayEl.addEventListener('click', () => {
+            sidebarEl.classList.remove('open');
+            overlayEl.classList.remove('open');
+        });
+
+
+        // Event listeners
+        document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
+        document.getElementById('loadFiles').addEventListener('click', loadSongsFolder);
+        document.getElementById('loadFilesMobile').addEventListener('click', loadSongsFolder);
+
+        // Next Song button - use both click and touch events for better mobile support
+        nextSongButtonEl.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            nextSong();
+        });
+
+        // Touch event for better mobile support
+        nextSongButtonEl.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            nextSong();
+        });
+
+        // Settings toggles
+        toggleNextSongEl.addEventListener('click', () => {
+            const isActive = toggleNextSongEl.classList.contains('active');
+            if (isActive) {
+                toggleNextSongEl.classList.remove('active');
+                bottomNavEl.classList.add('hidden');
+                settings.showNextSongButton = false;
+            } else {
+                toggleNextSongEl.classList.add('active');
+                bottomNavEl.classList.remove('hidden');
+                settings.showNextSongButton = true;
+            }
+            localStorage.setItem('showNextSongButton', settings.showNextSongButton);
+        });
+
+        toggleFontSliderEl.addEventListener('click', () => {
+            const isActive = toggleFontSliderEl.classList.contains('active');
+            if (isActive) {
+                toggleFontSliderEl.classList.remove('active');
+                fontSizeControlEl.classList.add('hidden');
+                settings.showFontSlider = false;
+            } else {
+                toggleFontSliderEl.classList.add('active');
+                fontSizeControlEl.classList.remove('hidden');
+                settings.showFontSlider = true;
+            }
+            localStorage.setItem('showFontSlider', settings.showFontSlider);
+        });
+
+        // Check for Updates button
+        const checkForUpdatesEl = document.getElementById('checkForUpdates');
+        checkForUpdatesEl.addEventListener('click', function() {
+            // Disable button to show it's working
+            checkForUpdatesEl.disabled = true;
+            checkForUpdatesEl.textContent = '🔄 Checking...';
+            
+            // Clear version from localStorage to force fresh check
+            localStorage.removeItem('lyricViewerVersion');
+            
+            // Force fetch with no-cache, then reload
+            fetch(window.location.href, {
+                method: 'GET',
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            }).then(function() {
+                // Reload with cache bypass
+                window.location.reload(true);
+            }).catch(function() {
+                // Fallback: reload anyway
+                window.location.reload(true);
+            });
+        });
+
+        // Cache DOM elements for performance
+        const fontSizeInput = document.getElementById('fontSize');
+        const fontSizeValue = document.getElementById('fontSizeValue');
+        const lyricsContent = document.getElementById('lyricsContent');
+
+        fontSizeInput.addEventListener('input', (e) => {
+            const size = parseInt(e.target.value);
+            fontSizeValue.textContent = size + 'px';
+            lyricsContent.style.fontSize = size + 'px';
+            localStorage.setItem('fontSize', size);
+        });
+
+        // Theme toggle (now in sidebar)
+        const themeToggleBtn = document.getElementById('themeToggle');
+        themeToggleBtn.addEventListener('click', () => {
+            document.body.classList.toggle('light');
+            const isLight = document.body.classList.contains('light');
+            themeToggleBtn.textContent = isLight ? '☀️ Light Mode' : '🌙 Dark Mode';
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        });
+
+        // Debounce search input for better performance
+        let searchTimeout = null;
+        document.getElementById('search').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                renderSongList(e.target.value);
+            }, 150); // Wait 150ms after typing stops
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'n' && e.ctrlKey) {
+                e.preventDefault();
+                nextSong();
+            } else if (e.key === 'p' && e.ctrlKey) {
+                e.preventDefault();
+                prevSong();
+            }
+        });
+
+        function nextSong() {
+            if (songs.length === 0 || !currentSong) return;
+            const currentIndex = songs.findIndex(s => s.id === currentSong.id);
+            const nextIndex = (currentIndex + 1) % songs.length;
+            selectSong(songs[nextIndex].id);
+        }
+
+        function prevSong() {
+            if (songs.length === 0) return;
+            const currentIndex = songs.findIndex(s => s.id === currentSong?.id);
+            const prevIndex = currentIndex <= 0 ? songs.length - 1 : currentIndex - 1;
+            selectSong(songs[prevIndex].id);
+        }
+
+        // Note: We removed the restrictive environment check that was blocking songs
+        // Now we ALWAYS try to load songs first, regardless of environment
+
+        // Initialize app - ensure it runs even if DOM is ready
+        function startApp() {
+            try {
+                // Ensure DOM elements exist
+                if (!songListContainer || !currentSongEl || !lyricsContentEl) {
+                    console.error('DOM elements not ready');
+                    setTimeout(startApp, 50); // Retry in 50ms
+                    return;
+                }
+                
+                // ALWAYS try to load songs first - don't block based on environment
+                try {
+                    if (EMBEDDED_SONGS && EMBEDDED_SONGS.length > 0) {
+                        songs = [...EMBEDDED_SONGS];
+                        renderSongList();
+                        if (songs.length > 0) {
+                            selectSong(songs[0].id);
+                            updateNextSongButton();
+                            // Songs loaded successfully! Continue with background init
+                            init().catch(err => console.warn('Background init failed:', err));
+                            return; // Success - exit early
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to load songs:', e);
+                }
+                
+                // Only if songs failed to load, show warning
+                if (songs.length === 0) {
+                    // Try one more time
+                    setTimeout(() => {
+                        try {
+                            if (EMBEDDED_SONGS && EMBEDDED_SONGS.length > 0) {
+                                songs = [...EMBEDDED_SONGS];
+                                renderSongList();
+                                if (songs.length > 0) {
+                                    selectSong(songs[0].id);
+                                    updateNextSongButton();
+                                    init().catch(err => console.warn('Background init failed:', err));
+                                    return; // Success!
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Retry failed:', e);
+                        }
+                        
+                        // Still failed - show error message
+                        songListContainer.innerHTML = `
+                            <div class="status" style="padding: 24px; text-align: center; max-width: 400px; margin: 0 auto;">
+                                <div style="font-size: 20px; margin-bottom: 16px; font-weight: 600;">⚠️ Songs Not Loading</div>
+                                <div style="font-size: 15px; line-height: 1.8; opacity: 0.95; margin-bottom: 20px;">
+                                    JavaScript may be restricted in this view.<br><br>
+                                    <strong>For best results:</strong><br>
+                                    Open in Safari browser<br><br>
+                                    <em style="font-size: 13px; opacity: 0.8;">Try opening from Safari's download folder</em>
+                                </div>
+                            </div>
+                        `;
+                        currentSongEl.innerHTML = '<span class="title">JavaScript Restricted</span>';
+                    }, 300);
+                    return;
+                }
+                
+                // Fallback: try normal init
+                init();
+            } catch (err) {
+                console.error('Failed to start app:', err);
+                if (songListContainer) {
+                    songListContainer.innerHTML = '<div class="status">Error: ' + err.message + '</div>';
+                }
+            }
+        }
+
+        // Try multiple initialization strategies for iOS Files app compatibility
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startApp);
+        } else {
+            // DOM already loaded, run immediately
+            setTimeout(startApp, 0);
+        }
+        
+        // Fallback 1: window load event (for iOS Files app)
+        window.addEventListener('load', () => {
+            if (songs.length === 0 && EMBEDDED_SONGS && EMBEDDED_SONGS.length > 0) {
+                console.log('Retrying initialization on window load...');
+                setTimeout(startApp, 100);
+            }
+        });
+        
+        // Fallback 2: Immediate check after a short delay (for iOS Files app)
+        setTimeout(() => {
+            if (songs.length === 0 && EMBEDDED_SONGS && EMBEDDED_SONGS.length > 0) {
+                console.log('Fallback: Retrying initialization after delay...');
+                startApp();
+            }
+        }, 500);
+    </script>
+</body>
+</html>
+
